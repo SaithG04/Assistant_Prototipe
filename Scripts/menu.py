@@ -4,6 +4,8 @@ import json
 import sys
 import os
 import socket
+
+from Scripts.generate_password import generate
 from search_google import buscar_informacion
 from consults import consultar_por_dni, consultar_por_ruc
 
@@ -13,6 +15,7 @@ os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 # Configuration file for storing machine name
 CONFIG_FILE = 'config.json'
 
+
 # Function to load machine name
 def cargar_nombre():
     if os.path.exists(CONFIG_FILE):
@@ -21,6 +24,7 @@ def cargar_nombre():
             return config.get('nombre_maquina', socket.gethostname())  # Use default PC name if not set
     return socket.gethostname()  # Default to PC name if config doesn't exist
 
+
 # Function to save machine name
 def guardar_nombre(nombre):
     config = {'nombre_maquina': nombre}
@@ -28,8 +32,10 @@ def guardar_nombre(nombre):
         json.dump(config, f)
     print(f"Nombre de la máquina cambiado a: {nombre}")
 
+
 # Load machine name
 nombre_maquina = cargar_nombre()
+
 
 def menu_principal():
     """Main menu for interacting with the assistant."""
@@ -42,7 +48,8 @@ def menu_principal():
         print("3. Consultar por RUC")
         print("4. Predecir palabra")
         print("5. Cambiar nombre de la máquina")
-        print("6. Salir")
+        print("6. Generar contraseña aleatoria")
+        print("7. Salir")
 
         opcion = input("Por favor, elija una opción: ")
 
@@ -73,10 +80,15 @@ def menu_principal():
                 guardar_nombre(nuevo_nombre)
                 nombre_maquina = nuevo_nombre  # Update global variable
         elif opcion == '6':
+            long = int(input("¿De cuántos carácteres te gustaría que fuera la contraseña?"))
+            pass_gen = generate(long)
+            print(f"La contraseña generada es: {pass_gen}")
+        elif opcion == '7':
             print("Hasta pronto...")
             sys.exit()
         else:
             print("Opción no válida. Por favor, elige nuevamente.")
+
 
 def predecir_palabra():
     """Placeholder for the word prediction functionality."""
@@ -89,6 +101,7 @@ def predecir_palabra():
         # Dummy response for now
         palabra_sugerida = 'INTENTE MAS TARDE'  # Placeholder for future AI model integration
         print(f"Asistente: {palabra_sugerida}")
+
 
 if __name__ == "__main__":
     menu_principal()
