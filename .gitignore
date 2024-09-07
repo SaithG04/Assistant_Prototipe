@@ -3,3 +3,6 @@
 
 ### Otro
 /Scripts/others.py
+
+# Ignorar archivos de PyCharm
+.idea/
