@@ -77,7 +77,7 @@ public class VoiceUI extends AppCompatActivity implements TextToSpeech.OnInitLis
 
     public void loadProcessedImage(String url) {
         // Lógica para cargar y mostrar la imagen procesada en la interfaz
-        Glide.with(this).load(url).into(imageView);
+        //Glide.with(this).load(url).into(imageView);
     }
 
     @Override
@@ -92,14 +92,14 @@ public class VoiceUI extends AppCompatActivity implements TextToSpeech.OnInitLis
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+        /*if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
             Bundle extras = data.getExtras();
             Bitmap imageBitmap = (Bitmap) extras.get("data");
 
             // Convertir el bitmap en archivo y enviarlo al backend
             assert imageBitmap != null;
             voiceManager.sendImageToBackend(voiceManager.getImageFileName(), imageBitmap);
-        }
+        }*/
     }
 
 }

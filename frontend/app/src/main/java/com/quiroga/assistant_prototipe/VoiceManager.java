@@ -17,9 +17,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
 import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -38,10 +40,17 @@ public class VoiceManager implements VoiceController {
     public VoiceManager(Context context, String apiUrl) {
         this.context = context;
 
+        OkHttpClient okHttpClient = new OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .build();
+
         // Configurar Retrofit
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl(apiUrl)
                 .addConverterFactory(GsonConverterFactory.create())
+                .client(okHttpClient)
                 .build();
 
         flaskApi = retrofit.create(FlaskApi.class);
@@ -96,6 +105,7 @@ public class VoiceManager implements VoiceController {
             @Override
             public void onResponse(@NonNull Call<Map<String, Object>> call, @NonNull Response<Map<String, Object>> response) {
                 if (response.isSuccessful() && response.body() != null) {
+                    Log.d(TAG, "Respuesta recibida: " + response.body().toString());
                     String transcribedText = (String) response.body().get("texto");
                     // Mostrar el texto y generar respuesta por voz
                     TextView resultText = ((VoiceUI) context).findViewById(R.id.result_text);
@@ -104,14 +114,14 @@ public class VoiceManager implements VoiceController {
                     // Generar la respuesta por voz
                     ((VoiceUI) context).speakOut(transcribedText);
                 } else {
-                    Log.e(TAG, "Error al transcribir: " + response.code());
+                    Log.e(TAG, "Error al transcribir: " + response.code() + ", " + response.errorBody());
                 }
             }
 
             @Override
             public void onFailure(@NonNull Call<Map<String, Object>> call, @NonNull Throwable t) {
-                Log.e(TAG, "Fallo en la conexión: " + t.getMessage());
-                ((VoiceUI) context).speakOut("Verifica tu conexión a internet.");
+                Log.e(TAG, "Fallo en la conexión: " + t.getMessage(), t);
+                ((VoiceUI) context).speakOut("No me he podido conectar al servidor...");
             }
         });
     }

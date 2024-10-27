@@ -14,7 +14,7 @@ def classify_intent(text):
     """
     Clasifica la intención del texto usando un modelo preentrenado y un umbral de decisión.
     """
-    labels = ["operación matemática", "consulta general", "procesar imagen"]
+    labels = ["operación matemática", "consulta general"]
     result = classifier(text, labels)
 
     # Mostrar la clasificación completa para depuración
@@ -67,9 +67,9 @@ def dispatch_command(text):
     print(f"Intención detectada: {intent}")
 
     # Buscar la intención en el diccionario
-    if intent == 'procesar imagen':
+    #if intent == 'procesar imagen':
         # Devolver señal para abrir la cámara en el frontend
-        return "abrir cámara"
+    #    return "abrir cámara"
 
     command_function = intent_dispatcher.get(intent)
     if command_function:
