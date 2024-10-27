@@ -6,3 +6,6 @@
 
 # Ignorar archivos de PyCharm
 .idea/
+
+
+.env
