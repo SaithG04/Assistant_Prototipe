@@ -1,80 +1,14 @@
+import re
+
 import speech_recognition as spd
 from pydub import AudioSegment
 from io import BytesIO
-from math_operations import solve_simple_math_operation
-from general_commands import handle_general_query
-from transformers import pipeline
+
+from Scripts.consults_reniec import get_info_by_dni
+from text_processing import preprocess_text, sanitize_response
+from gemini_interaction import interact_with_gemini
 
 listener = spd.Recognizer()
-
-# Cargar el modelo preentrenado para clasificación de intenciones
-classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
-
-def classify_intent(text):
-    """
-    Clasifica la intención del texto usando un modelo preentrenado y un umbral de decisión.
-    """
-    labels = ["operación matemática", "consulta general"]
-    result = classifier(text, labels)
-
-    # Mostrar la clasificación completa para depuración
-    print(f"Clasificación obtenida: {result}")
-
-    # Ajustar umbral para clasificar
-    threshold = 0.25
-    top_label = result['labels'][0]
-    top_score = result['scores'][0]
-
-    if top_score >= threshold:
-        return top_label
-    else:
-        return 'desconocido'  # Devuelve 'desconocido' si no hay una confianza suficiente
-
-
-# Diccionario que asocia cada tipo de comando con una función
-intent_dispatcher = {
-    'operación matemática': solve_simple_math_operation,
-    'consulta general': handle_general_query,
-    'procesar imagen': 'abrir cámara',  # Señal para abrir cámara en frontend
-    # Puedes seguir agregando comandos aquí
-}
-
-
-def detect_intent(text):
-    """
-    Detecta la intención (tipo de comando) basándose en las palabras clave en el texto.
-    """
-    # Detectar operaciones matemáticas manualmente
-    if text.startswith("cuánto es") or text.startswith("cuanto es"):
-        return 'operación matemática'
-
-    # Si no es matemática, usar el clasificador de IA para otras intenciones
-    intent = classify_intent(text)
-    print(f"Intención detectada por IA: {intent}")
-
-    if intent in intent_dispatcher:
-        return intent
-    return 'desconocido'
-
-
-def dispatch_command(text):
-    """
-    Esta función decide qué tipo de comando es y llama a la función correspondiente.
-    """
-    print(f"Texto recibido para procesar comando: {text}")
-
-    intent = detect_intent(text)
-    print(f"Intención detectada: {intent}")
-
-    # Buscar la intención en el diccionario
-    #if intent == 'procesar imagen':
-        # Devolver señal para abrir la cámara en el frontend
-    #    return "abrir cámara"
-
-    command_function = intent_dispatcher.get(intent)
-    if command_function:
-        return command_function(text)
-    return "No pude entender el comando."
 
 
 def convert_audio_to_wav(audio_file, file_ext):
@@ -99,10 +33,51 @@ def transcribe_audio(audio_file):
             audio_data = listener.record(src)  # Lee el audio completo
             texto = listener.recognize_google(audio_data, language="es-ES")  # Realiza la transcripción
             texto = texto.lower()  # Convierte el texto a minúsculas
-            print(f"Texto transcrito: {texto}")
+            print(f"Texto transcrito: {texto}")  # Imprime el texto transcrito
             return texto
     except spd.UnknownValueError:
+        print("No se pudo entender el audio.")
         return None
     except spd.RequestError as e:
         print(f"Error al realizar la solicitud a la API de Google: {e}")
         return None
+
+
+def dispatch_command(text):
+    """
+    Procesa el texto transcrito con Gemini si no es un comando específico enviado desde el frontend.
+    """
+    # Verificar si el texto comienza con "consultar horario"
+    if text.startswith("consultar horario"):
+        # Aquí puedes procesar el comando de consulta de horario
+        return "Comando para consultar horario identificado."
+
+    # Verificar si el texto comienza con "consultar dni" seguido de un DNI de 8 dígitos
+    elif text.startswith("consultar dni"):
+        # Extraer el DNI de 8 dígitos usando tu función
+        match = re.search(r'\b\d{8}\b', text)
+        if match:
+            dni = match.group(0)  # Extraer el DNI
+            # Llamar a la función para obtener información por DNI
+            info = get_info_by_dni(dni)
+            if info:
+                return info
+            else:
+                return "No se encontró información para el DNI proporcionado."
+        else:
+            return "DNI inválido. Asegúrate de proporcionar un DNI de 8 dígitos."
+
+    elif text.startswith("consultar tareas"):
+        # Aquí puedes procesar el comando para consultar tareas
+        return "Comando para consultar tareas identificado."
+
+    elif text.startswith("consultar"):
+        return "Comando no identificado."
+
+    # Si no es ningún comando específico, procesar normalmente con Gemini
+    preprocessed_text = preprocess_text(text)
+    response = interact_with_gemini(preprocessed_text)
+    sanitized_response = sanitize_response(response)
+
+    return sanitized_response
+

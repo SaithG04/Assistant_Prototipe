@@ -1,8 +1,8 @@
 import requests
-import os
+from config import API_TOKEN_DNI_RUC
 
 # Token de autorización
-token = os.getenv('API_TOKEN_DNI_RUC')
+token = API_TOKEN_DNI_RUC
 
 if token is None:
     raise ValueError('El Token no está configurado')

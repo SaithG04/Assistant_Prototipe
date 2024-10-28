@@ -24,21 +24,21 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.108" />
+        app:layout_constraintVertical_bias="0.046" />
 
     <TextView
         android:id="@+id/result_text"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hola"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:fontFamily="casual"
         android:layout_marginTop="16dp"
+        android:fontFamily="casual"
+        android:text="Hola"
         android:textColor="@android:color/black"
-        app:layout_constraintTop_toBottomOf="@id/btn_record_voice"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toBottomOf="@id/btn_record_voice" />
 
     <ImageView
         android:id="@+id/processed_image_view"
@@ -50,7 +50,20 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.918"
-        app:srcCompat="@drawable/ic_launcher_foreground" />
+        app:srcCompat="@drawable/image" />
+
+    <Button
+        android:id="@+id/download_code_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Descargar código"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.498"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.333"
+        android:visibility="gone"/>
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

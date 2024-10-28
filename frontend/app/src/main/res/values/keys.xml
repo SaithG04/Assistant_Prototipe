@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="API_URL">http://18.217.16.163:5000</string>
-    <!--<string name="API_URL">http://192.168.18.100:5000/</string>-->
+    <!--<string name="API_URL">http://18.217.16.163:5000</string>-->
+    <string name="API_URL">http://192.168.18.100:5000/</string>
 </resources>

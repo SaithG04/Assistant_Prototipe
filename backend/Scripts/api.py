@@ -1,66 +1,102 @@
-from flask import Flask, request, jsonify, send_file
-from voice import convert_audio_to_wav, transcribe_audio, dispatch_command
-from image_processing import process_image_for_edges
+from flask import Flask, request, jsonify
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+from Scripts.consults_reniec import get_info_by_dni
+from Scripts.voice import convert_audio_to_wav, transcribe_audio, dispatch_command
+from db import Task, get_schedule_by_day
+from config import DATABASE_URL
 
 app = Flask(__name__)
 
-@app.route('/speech_to_text', methods=['POST'])
-def speech_to_text():
+# Configuración de la base de datos
+engine = create_engine(DATABASE_URL)
+Session = sessionmaker(bind=engine)
+session = Session()
+
+
+@app.route('/process_voice_command', methods=['POST'])
+def process_voice_command():  # Cambié el nombre de la función
     if 'file' not in request.files:
         return jsonify({'error': 'No se encontró un archivo de audio'}), 400
 
     audio_file = request.files['file']
-    file_ext = audio_file.filename.split('.')[-1].lower()
+    file_ext = audio_file.filename.split('.')[-1]
 
-    print(f"Tipo de archivo recibido: {audio_file.content_type}")
-    print(f"Extensión de archivo: {file_ext}")
+    if audio_file.filename == '':
+        return jsonify({'error': 'El archivo de audio está vacío.'}), 400
 
-    if file_ext not in ['wav', 'mp3', 'mp4', 'ogg', 'flac']:
-        return jsonify({'error': 'Formato de archivo no compatible. Se espera uno de los siguientes: wav, mp3, mp4, ogg, flac.'}), 400
+    # Convertir el archivo a WAV si no está en ese formato
+    audio_file = convert_audio_to_wav(audio_file, file_ext)
+
+    # Llamar a la función que transcribe el audio a texto
+    transcribed_text = transcribe_audio(audio_file)
+
+    if transcribed_text is None:
+        return jsonify({'error': 'No se pudo transcribir el audio'}), 400
 
     try:
-        # Convertir el archivo a WAV si es necesario
-        wav_audio = convert_audio_to_wav(audio_file, file_ext)
-
-        # Transcribir el audio a texto
-        transcribed_text = transcribe_audio(wav_audio)
-        if not transcribed_text:
-            return jsonify({'error': 'No se pudo entender el audio, inténtalo nuevamente.'}), 400
-
-        # Despachar el comando a la función correspondiente
-        resultado = dispatch_command(transcribed_text)
-        print(f"Resultado del comando: {resultado}")
-
-        return jsonify({'texto': resultado, 'mensaje': 'Texto procesado correctamente.'})
-
+        # Procesar el texto transcrito y enviar a Gemini
+        response_text = dispatch_command(transcribed_text)
+        return jsonify({'texto': response_text, 'mensaje': 'Texto procesado correctamente.'})
     except Exception as e:
-        print(f"Error en el procesamiento: {e}")
         return jsonify({'error': f'Error interno: {str(e)}'}), 500
 
 
-@app.route('/process_image', methods=['POST'])
-def process_image():
-    """
-    Endpoint que recibe una imagen, la procesa (detecta bordes) y devuelve la imagen procesada.
-    """
-    if 'file' not in request.files:
-        return jsonify({'error': 'No se encontró ningún archivo.'}), 400
-
-    # Leer la imagen enviada
-    file = request.files['file']
-
+@app.route('/get_schedule/<day_of_week>', methods=['GET'])
+def get_schedule_route(day_of_week):
     try:
-        # Procesar la imagen usando la lógica separada
-        processed_image = process_image_for_edges(file.stream)
+        schedule = get_schedule_by_day(day_of_week.capitalize())
+        if not schedule:
+            return jsonify({'mensaje': f'No tienes clases programadas para el {day_of_week}.'}), 200
 
-        # Enviar la imagen procesada de vuelta
-        return send_file(processed_image, mimetype='image/png')
+        result = [
+            {
+                'subject': entry.subject,
+                'start_time': entry.start_time.strftime('%H:%M'),
+                'end_time': entry.end_time.strftime('%H:%M'),
+                'location': entry.location
+            } for entry in schedule
+        ]
+        return jsonify({'horario': result, 'mensaje': f'Horario para el {day_of_week} consultado exitosamente.'}), 200
 
     except Exception as e:
-        return jsonify({'error': f'Ocurrió un error al procesar la imagen: {str(e)}'}), 500
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
 
 
-# Ejecución del servidor Flask
+@app.route('/get_dni/<dni>', methods=['GET'])
+def get_dni(dni):
+    try:
+        # Usar la función get_info_by_dni del archivo consults_reniec.py
+        result = get_info_by_dni(dni)
+        if not result:
+            return jsonify({'mensaje': 'No se encontró información para el DNI proporcionado.'}), 404
+
+        # Retornar la información obtenida
+        return jsonify({'dni_info': result, 'mensaje': 'Consulta de DNI exitosa.'}), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+
+
+@app.route('/get_tasks', methods=['GET'])
+def get_tasks():
+    try:
+        tasks = session.query(Task).all()  # Asegúrate de que Task esté bien definido en tu modelo
+        if not tasks:
+            return jsonify({'mensaje': 'No tienes tareas pendientes.'}), 200
+
+        result = [
+            {
+                'task_name': task.name,
+                'due_date': task.due_date.strftime('%d/%m/%Y'),
+                'description': task.description
+            } for task in tasks
+        ]
+        return jsonify({'tareas': result, 'mensaje': 'Tareas consultadas exitosamente.'}), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+
+
 if __name__ == '__main__':
-    #app.run(host=os.getenv('HOST'), port=5000, debug=True)
     app.run(host='0.0.0.0', port=5000, debug=True)
