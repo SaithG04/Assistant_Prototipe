@@ -18,12 +18,11 @@ def is_similar(text1, text2, threshold=0.8):
     return SequenceMatcher(None, text1, text2).ratio() > threshold
 
 
-def interact_with_gemini(text):
+def interact_with_gemini(text, is_query):
     """
-    Envía el texto a Gemini AI junto con el historial de la conversación para mantener ex   l contexto.
+    Envía el texto a Gemini AI junto con el historial de la conversación para mantener el contexto.
     """
     try:
-        print("Entrada del metodo interact.. " + text)
         # Cargar el historial desde la base de datos
         # print("Cargando historial de la base de datos...")
         # conversation_history = load_history_from_db()
@@ -56,7 +55,7 @@ def interact_with_gemini(text):
 
         # Enviar la nueva consulta a Gemini
         response = chat.send_message(text)
-        print(f"Respuesta de Gemini recibida: {response.text}")
+        print(f"Respuesta de Gemini recibida: {response.text.lower()}")
 
         # Verificar si la respuesta es muy similar a la última respuesta del asistente
         # if conversation_history and conversation_history[-1].role == 'assistant'
@@ -65,10 +64,12 @@ def interact_with_gemini(text):
         #    return "Parece que te respondí algo similar antes, ¿puedes aclarar lo que dijiste?"
 
         # Guardar el mensaje del usuario y la respuesta de Gemini en la base de datos
-        save_message_to_db("user", text)
-        save_message_to_db("assistant", response.text)
 
-        print("Mensaje guardado en la base de datos.")
+        if is_query:
+            save_message_to_db("user", text)
+            save_message_to_db("assistant", response.text)
+            print("Mensaje guardado en la base de datos.")
+
         return response.text
 
     except Exception as e:

@@ -2,8 +2,13 @@ package com.quiroga.assistant_prototipe;
 
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.media.MediaRecorder;
 import android.net.Uri;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -15,9 +20,13 @@ import androidx.annotation.NonNull;
 import com.quiroga.assistant_prototipe.api.FlaskApi;
 import com.quiroga.assistant_prototipe.ui.VoiceUI;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -26,6 +35,7 @@ import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -44,9 +54,9 @@ public class VoiceManager implements VoiceController {
         this.context = context;
 
         OkHttpClient okHttpClient = new OkHttpClient.Builder()
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .writeTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
                 .build();
 
         // Configurar Retrofit
@@ -102,7 +112,7 @@ public class VoiceManager implements VoiceController {
         RequestBody requestFile = RequestBody.create(MediaType.parse("audio/mp4"), file);
         MultipartBody.Part body = MultipartBody.Part.createFormData("file", file.getName(), requestFile);
 
-        Call<Map<String, Object>> call = flaskApi.speechToText(body);
+        Call<Map<String, Object>> call = flaskApi.sendCommandVoice(body);
         call.enqueue(new Callback<Map<String, Object>>() {
             @Override
             public void onResponse(@NonNull Call<Map<String, Object>> call, @NonNull Response<Map<String, Object>> response) {
@@ -153,16 +163,24 @@ public class VoiceManager implements VoiceController {
                             downloadCodeButton.setOnClickListener(view -> {
                                 saveCodeToFile(code);
                             });
-                        } else {
-                            Log.d(TAG, "No se recibió un código para mostrar o descargar.");
                         }
                     } else {
                         Log.e(TAG, "La respuesta no contiene un campo 'texto' válido.");
                         ((VoiceUI) context).speakOut("No se ha recibido una respuesta válida.");
                     }
                 } else {
-                    Log.e(TAG, "Error al transcribir: " + response.code() + ", " + response.errorBody());
-                    ((VoiceUI) context).speakOut("Hubo un error al procesar tu solicitud.");
+                    try {
+                        String errorBody = response.errorBody().string();  // Extrae el cuerpo del error como String
+
+                        // Parsear el JSON para extraer el campo "error"
+                        JSONObject jsonObject = new JSONObject(errorBody);
+                        String errorMessage = jsonObject.getString("error");  // Obtener el contenido de "error"
+
+                        Log.e(TAG, "Error al transcribir: " + response.code() + ", Mensaje: '" + errorMessage + "'");
+                        handleText(errorMessage);
+                    } catch (IOException | JSONException e) {
+                        Log.e(TAG, "Error al procesar la respuesta del servidor: " + e.getMessage(), e);
+                    }
                 }
             }
 
@@ -183,6 +201,65 @@ public class VoiceManager implements VoiceController {
         ((VoiceUI) context).speakOut(transcribedText);
     }
 
+    @Override
+    public void sendImageAndAudio(String audioFilePath, Uri imageUri) {
+        File audioFile = new File(audioFilePath);
+        if (!audioFile.exists() || audioFile.length() == 0) {
+            Log.e(TAG, "El archivo de audio no existe o está vacío.");
+            return;
+        }
+
+        // Crea el cuerpo de audio
+        RequestBody requestFileAudio = RequestBody.create(MediaType.parse("audio/mp4"), audioFile);
+        MultipartBody.Part audioBody = MultipartBody.Part.createFormData("audio", audioFile.getName(), requestFileAudio);
+
+        // Convertir el Uri en InputStream sin intentar obtener una ruta física
+        try {
+            InputStream inputStream = context.getContentResolver().openInputStream(imageUri);
+            RequestBody requestFileImage = null;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                requestFileImage = RequestBody.create(MediaType.parse("image/jpeg"), inputStream.readAllBytes());
+            }
+            MultipartBody.Part imageBody = MultipartBody.Part.createFormData("image", "image.jpg", requestFileImage);
+
+            // Llamada a la API
+            Call<ResponseBody> call = flaskApi.sendImageAndAudio(audioBody, imageBody);
+            call.enqueue(new Callback<ResponseBody>() {
+                @Override
+                public void onResponse(@NonNull Call<ResponseBody> call, @NonNull Response<ResponseBody> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        Log.d(TAG, "Respuesta recibida.");
+
+                        // Procesa la imagen y el mensaje
+                        InputStream inputStream = response.body().byteStream();
+                        Bitmap processedBitmap = BitmapFactory.decodeStream(inputStream);
+                        ((VoiceUI) context).updateImageView(processedBitmap);  // Actualiza la imagen
+                        String message = response.headers().get("message");
+                        if (message != null) {
+                            Log.d(TAG, "Mensaje recibido: " + message);
+                            handleText(message);
+                        }else {
+                            
+                            Log.e(TAG, "No se recibió un mensaje en la respuesta.");
+                            handleText("No se ha recibido una respuesta válida.");
+                        }
+                    } else {
+                        Log.e(TAG, "Error al procesar el comando: " + response.code());
+                        ((VoiceUI) context).speakOut("Hubo un error al procesar tu solicitud.");
+                    }
+                }
+
+                @Override
+                public void onFailure(@NonNull Call<ResponseBody> call, @NonNull Throwable t) {
+                    Log.e(TAG, "Fallo en la conexión: " + t.getMessage(), t);
+                    handleText("No me he podido conectar al servidor...");
+                }
+            });
+        } catch (IOException e) {
+            Log.e(TAG, "Error al leer la imagen desde el URI", e);
+            handleText("Hubo un error al leer la imagen.");
+        }
+    }
 
     public String getAudioFileName() {
         return audioFileName;
@@ -227,6 +304,64 @@ public class VoiceManager implements VoiceController {
             Log.e(TAG, "Error al guardar el archivo de código: " + e.getMessage());
             ((VoiceUI) context).speakOut("Hubo un error al guardar el código.");
         }
+    }
+
+    @Deprecated
+    public String getRealPathFromURI(Uri uri) {
+        String[] projection = {MediaStore.Images.Media.DATA};
+        Cursor cursor = context.getContentResolver().query(uri, projection, null, null, null);
+        if (cursor != null) {
+            int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+            cursor.moveToFirst();
+            String path = cursor.getString(column_index);
+            cursor.close();
+            return path;
+        } else {
+            return uri.getPath();  // Si no se puede obtener, devuelve la ruta del URI
+        }
+    }
+
+    public void saveBitmapToGallery(Bitmap bitmap) {
+        String savedImagePath = null;
+        String imageFileName = "IMG_" + System.currentTimeMillis() + ".jpg";
+        File storageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES) + "/AssistantPrototipe");
+
+        boolean success = true;
+        if (!storageDir.exists()) {
+            success = storageDir.mkdirs();  // Crea el directorio si no existe
+        }
+
+        if (success) {
+            File imageFile = new File(storageDir, imageFileName);
+            try {
+                FileOutputStream fos = new FileOutputStream(imageFile);
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);  // Guarda la imagen
+                fos.close();
+
+                // Añadir la imagen a la galería
+                Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+                Uri contentUri = Uri.fromFile(imageFile);
+                mediaScanIntent.setData(contentUri);
+                context.sendBroadcast(mediaScanIntent);
+
+                Toast.makeText(context, "Imagen guardada en la galería", Toast.LENGTH_LONG).show();
+            } catch (IOException e) {
+                Log.e(TAG, "Error al guardar la imagen", e);
+            }
+        }
+    }
+
+    // Método para actualizar la imagen procesada en el ImageView
+    private void updateImageFromResponse(ResponseBody responseBody) {
+        // Convertir la respuesta a un Bitmap
+        InputStream inputStream = responseBody.byteStream();
+        Bitmap processedBitmap = BitmapFactory.decodeStream(inputStream);
+
+        // Actualizar el ImageView con la nueva imagen procesada
+        ((VoiceUI) context).updateImageView(processedBitmap);
+
+        // Guardar la imagen procesada en la galería si es necesario
+        saveBitmapToGallery(processedBitmap);
     }
 
 }

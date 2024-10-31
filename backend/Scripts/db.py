@@ -1,4 +1,7 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, Enum, TIMESTAMP
+import logging
+from datetime import datetime
+
+from sqlalchemy import create_engine, Column, Integer, String, Text, Enum, TIMESTAMP, TIME
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
@@ -26,11 +29,14 @@ class Schedule(Base):
     id = Column(Integer, primary_key=True)
     subject = Column(String(255), nullable=False)
     day_of_week = Column(Enum('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'), nullable=False)
-    start_time = Column(TIMESTAMP, nullable=False)
-    end_time = Column(TIMESTAMP, nullable=False)
-    location = Column(String(255), nullable=True)
+    modality = Column(Enum('Presencial', 'Virtual'), nullable=False)
+    start_time = Column(TIME, nullable=False)
+    end_time = Column(TIME, nullable=False)
+    location = Column(String(255))
+    professor = Column(String(255))
 
 
+# Modelo para las tareas
 # Modelo para las tareas
 class Task(Base):
     __tablename__ = 'task'
@@ -38,6 +44,7 @@ class Task(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text)
     due_date = Column(TIMESTAMP, nullable=False)
+    status = Column(Enum('pendiente', 'completada', 'cancelada'), default='pendiente', nullable=False)
 
 
 # Crear las tablas si no existen
@@ -61,13 +68,13 @@ def add_schedule(subject, day_of_week, start_time, end_time, location=None):
 
 
 # Función para obtener el horario por día
-def get_schedule_by_day(day_of_week):
+def list_schedule_by_day(day_of_week):
     session = Session()
     try:
-        schedule = session.query(Schedule).filter_by(day_of_week=day_of_week).all()
+        schedule = session.query(Schedule).filter_by(day_of_week=day_of_week.capitalize()).all()
         return schedule if schedule else []
     except SQLAlchemyError as e:
-        print(f"Error al consultar el horario: {str(e)}")
+        logging.error(f"Error al consultar el horario: {e}")
         return []
     finally:
         session.close()
@@ -79,3 +86,21 @@ def save_message_to_db(role, content):
     new_message = ConversationHistory(role=role, content=content)
     session.add(new_message)
     session.commit()
+
+
+def list_tasks_by_date_and_status(date: datetime = None, status: str = 'pendiente'):
+    session = Session()
+    try:
+        query = session.query(Task).filter(Task.status == status)
+
+        # Si se proporciona una fecha, agrega el filtro de fecha
+        if date:
+            query = query.filter(Task.due_date == date.date())
+
+        tasks = query.all()
+        session.close()
+        return tasks
+    except Exception as e:
+        logging.error(f"Error al consultar tareas: {e}")
+        session.close()
+        return []

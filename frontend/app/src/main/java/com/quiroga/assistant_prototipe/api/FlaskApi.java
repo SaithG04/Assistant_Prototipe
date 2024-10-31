@@ -3,28 +3,17 @@ package com.quiroga.assistant_prototipe.api;
 import java.util.Map;
 
 import okhttp3.MultipartBody;
+import okhttp3.ResponseBody;
 import retrofit2.Call;
-import retrofit2.http.GET;
-import retrofit2.http.Multipart;
-import retrofit2.http.POST;
-import retrofit2.http.Part;
-import retrofit2.http.Path;
+import retrofit2.http.*;
 
 public interface FlaskApi {
 
     @Multipart
     @POST("/process_voice_command")
-    Call<Map<String, Object>> speechToText(@Part MultipartBody.Part file);
+    Call<Map<String, Object>> sendCommandVoice(@Part MultipartBody.Part file);
 
-    // Endpoint para obtener el horario de un día específico
-    @GET("/get_schedule/{day_of_week}")
-    Call<Map<String, Object>> getSchedule(@Path("day_of_week") String dayOfWeek);
-
-    // Endpoint para obtener las tareas
-    //@GET("/get_tasks")
-    //Call<Map<String, Object>> getTasks();
-
-    // Endpoint para obtener la información de un DNI
-    @GET("/get_dni/{dni}")
-    Call<Map<String, Object>> getDni(@Path("dni") String dni);
+    @Multipart
+    @POST("/process_image_and_audio")
+    Call<ResponseBody> sendImageAndAudio(@Part MultipartBody.Part audio, @Part MultipartBody.Part image);
 }
