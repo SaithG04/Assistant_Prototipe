@@ -1,6 +1,6 @@
 import google.generativeai as genai
 
-from Scripts.db import save_message_to_db
+from db import save_message_to_db
 from config import API_KEY
 from difflib import SequenceMatcher  # Para detectar similitud en entradas
 

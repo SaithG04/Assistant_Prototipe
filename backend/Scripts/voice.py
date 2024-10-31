@@ -9,17 +9,17 @@ from pydub import AudioSegment
 from io import BytesIO
 import logging
 
-from Scripts.process_image import classify_image, preprocess_image, convert_image_to_bytes, is_image_blank, \
+from process_image import classify_image, preprocess_image, convert_image_to_bytes, is_image_blank, \
     improve_image_resolution
-from Scripts.consult_taks import add_task, list_tasks
-from Scripts.consults_reniec import get_info_by_dni
-from Scripts.db import list_tasks_by_date_and_status, list_schedule_by_day
-from Scripts.generate_image import generate_solution_image
-from Scripts.prompts import generate_task_creation_prompt, generate_natural_date_time_prompt, \
+from consult_taks import add_task, list_tasks
+from consults_reniec import get_info_by_dni
+from db import list_tasks_by_date_and_status, list_schedule_by_day
+from generate_image import generate_solution_image
+from prompts import generate_task_creation_prompt, generate_natural_date_time_prompt, \
     generate_task_list_natural_prompt, generate_task_date_interpretation_prompt, generate_schedule_list_natural_prompt, \
     generate_schedule_date_interpretation_prompt, generate_ethical_check_prompt
-from Scripts.recon_math import extract_text_from_image
-from Scripts.solve_math import solve_math_expression
+from recon_math import extract_text_from_image
+from solve_math import solve_math_expression
 from text_processing import preprocess_text, sanitize_response, format_math_expression, day_translation
 from gemini_interaction import interact_with_gemini
 

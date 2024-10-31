@@ -1,7 +1,6 @@
 import pytesseract
 from PIL import Image
 import logging
-from Scripts.process_image import preprocess_image_to_bw
 
 
 def extract_text_from_image(image_file):

@@ -1,6 +1,6 @@
 import io
 from flask import Flask, request, jsonify, send_file, make_response
-from Scripts.voice import convert_audio_to_wav, transcribe_audio, dispatch_command
+from voice import convert_audio_to_wav, transcribe_audio, dispatch_command
 import logging
 
 # Configurar el logging
